@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+    <modelVersion>4.0.0</modelVersion>
+
+    <!--
+      Spring Boot parent gives us dependency management (the "BOM"): we declare
+      dependencies WITHOUT versions and Boot picks versions guaranteed to work
+      together. 3.5.16 matches the rest of the platform (User Service et al.).
+    -->
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.5.16</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>com.ecommerce</groupId>
+    <artifactId>order-service</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <name>order-service</name>
+    <description>Order Service - orders, order items, status, history and order events for the Ecommerce Platform</description>
+
+    <properties>
+        <java.version>21</java.version>
+        <springdoc.version>2.8.17</springdoc.version>
+        <!--
+          Spring Cloud 2025.0.x is the release train that targets Spring Boot 3.5.x.
+          Do not bump this independently of the Boot version in <parent> - the train
+          and the Boot line are released as a matched pair.
+        -->
+        <spring-cloud.version>2025.0.3</spring-cloud.version>
+    </properties>
+
+    <!--
+      The Spring Cloud BOM, imported alongside Boot's own. It is what lets the
+      OpenFeign starter below be declared without a version.
+    -->
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>${spring-cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+
+        <!-- ===== Web layer: @RestController, embedded Tomcat, Jackson ===== -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- ===== Persistence: Hibernate + Spring Data JPA repositories ===== -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+
+        <!-- ===== Bean Validation: @NotNull, @NotEmpty, @Min, @DecimalMin ===== -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+
+        <!--
+          ===== NO SECURITY, DELIBERATELY =====
+          Order Service does NOT authenticate or authorise. The API Gateway validates
+          the JWT and Auth Service owns identity; requests that reach this service have
+          already passed that flow. There is therefore no spring-boot-starter-security,
+          no SecurityConfig, no JWT filter and no ownership check here - unlike User
+          Service, which keeps a header-reading filter chain. This service is business
+          logic only.
+        -->
+
+        <!-- ===== Health endpoint the API Gateway can probe ===== -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!-- ===== PostgreSQL JDBC driver (runtime only) ===== -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!--
+          ===== Flyway: versioned schema migrations =====
+          flyway-database-postgresql is MANDATORY from Flyway 10 onwards; the
+          Postgres dialect was split out of flyway-core into its own artifact.
+        -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+        </dependency>
+
+        <!--
+          ===== OpenFeign: typed HTTP client for User Service =====
+
+          THE SERVICE THAT NEEDS DATA MAKES THE FEIGN CALL. Order Service needs the
+          customer's email and delivery address at checkout, so the Feign client lives
+          here, in the consumer. Pinned to an absolute URL from configuration - no
+          service discovery / Eureka.
+        -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-openfeign</artifactId>
+        </dependency>
+
+        <!--
+          ===== Apache Kafka: OrderCreated / OrderCancelled events =====
+          Order Service is the first Kafka producer on the platform (User Service has
+          none). Version is managed by the Spring Boot BOM, so no explicit version.
+          Notification Service consumes these events to send confirmation/cancellation
+          emails - a fire-and-forget fan-out that genuinely needs no reply.
+        -->
+        <dependency>
+            <groupId>org.springframework.kafka</groupId>
+            <artifactId>spring-kafka</artifactId>
+        </dependency>
+
+        <!-- ===== Swagger / OpenAPI 3 UI at /swagger-ui.html ===== -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>${springdoc.version}</version>
+        </dependency>
+
+        <!-- ===== Testing: JUnit 5 + Mockito + AssertJ + MockMvc ===== -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+
+            <!--
+              Tests tagged @Tag("integration") need a real PostgreSQL, so `mvn test`
+              skips them and runs only the unit and MockMvc slice tests - meaning the
+              default build needs no database and no Kafka broker at all. Run the
+              integration tests with the profile below:
+                  mvn test -P integration-tests
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <excludedGroups>integration</excludedGroups>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <!--
+          `mvn test -P integration-tests` runs ONLY the @Tag("integration") tests, against
+          the real PostgreSQL database named by src/test/resources/application-test.yml.
+          The exclusion above has to be cleared here as well, otherwise it would cancel
+          out the inclusion and silently run nothing.
+        -->
+        <profile>
+            <id>integration-tests</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <groups>integration</groups>
+                            <excludedGroups combine.self="override"/>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+
+</project>
