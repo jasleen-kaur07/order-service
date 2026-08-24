@@ -1,0 +1,90 @@
+server:
+  port: ${SERVER_PORT:8085}
+
+spring:
+  application:
+    name: order-service
+
+  profiles:
+    default: local
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:order_service_db}
+    username: ${DB_USERNAME:order_service}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      pool-name: order-service-pool
+      maximum-pool-size: 10
+      minimum-idle: 2
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+        format_sql: true
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+    validate-on-migrate: true
+
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+
+  cloud:
+    openfeign:
+      client:
+        config:
+          default:
+            connectTimeout: 2000
+            readTimeout: 3000
+            loggerLevel: basic
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      properties:
+        max.block.ms: 2000
+        spring.json.add.type.headers: false
+
+integration:
+  user-service:
+    url: ${USER_SERVICE_URL:http://localhost:8082}
+
+orders:
+  events:
+    enabled: ${ORDER_EVENTS_ENABLED:true}
+    topics:
+      order-created: ${ORDER_CREATED_TOPIC:order.created}
+      order-cancelled: ${ORDER_CANCELLED_TOPIC:order.cancelled}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  level:
+    com.ecommerce.orderservice: DEBUG

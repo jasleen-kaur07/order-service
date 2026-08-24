@@ -1,0 +1,15 @@
+spring:
+  datasource:
+    password: ${DB_PASSWORD:order_service_dev_pw}
+
+  jpa:
+    show-sql: true
+
+logging:
+  level:
+    org.hibernate.SQL: DEBUG
+    org.flywaydb: INFO
+
+orders:
+  events:
+    enabled: ${ORDER_EVENTS_ENABLED:false}
