@@ -46,12 +46,24 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class OrderServiceTest {
 
-    private static final UUID ORDER_ID = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
-    private static final UUID CART_ID = UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
-    private static final UUID USER_ID = UUID.fromString("cccccccc-cccc-cccc-cccc-cccccccccccc");
-    private static final UUID ADDRESS_ID = UUID.fromString("dddddddd-dddd-dddd-dddd-dddddddddddd");
-    private static final UUID PRODUCT_ID = UUID.fromString("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee");
-    private static final UUID MERCHANT_ID = UUID.fromString("ffffffff-ffff-ffff-ffff-ffffffffffff");
+    private static final UUID ORDER_ID =
+            UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+
+    private static final UUID CART_ID =
+            UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+
+    private static final UUID USER_ID =
+            UUID.fromString("cccccccc-cccc-cccc-cccc-cccccccccccc");
+
+    private static final UUID ADDRESS_ID =
+            UUID.fromString("dddddddd-dddd-dddd-dddd-dddddddddddd");
+
+    private static final UUID PRODUCT_ID =
+            UUID.fromString("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee");
+
+    private static final UUID MERCHANT_ID =
+            UUID.fromString("ffffffff-ffff-ffff-ffff-ffffffffffff");
+
     private static final String EMAIL = "jasleen@gmail.com";
 
     @Mock
@@ -67,9 +79,21 @@ class OrderServiceTest {
     private OrderService orderService;
 
     private static CreateOrderRequest requestWithTotal(BigDecimal total) {
-        return new CreateOrderRequest(CART_ID, USER_ID, ADDRESS_ID,
-                List.of(new OrderLineItemRequest(PRODUCT_ID, MERCHANT_ID, "Widget", 2, new BigDecimal("50.00"))),
-                total);
+        return new CreateOrderRequest(
+                CART_ID,
+                USER_ID,
+                ADDRESS_ID,
+                List.of(
+                        new OrderLineItemRequest(
+                                PRODUCT_ID,
+                                MERCHANT_ID,
+                                "Widget",
+                                2,
+                                new BigDecimal("50.00")
+                        )
+                ),
+                total
+        );
     }
 
     private static CreateOrderRequest validRequest() {
@@ -77,24 +101,67 @@ class OrderServiceTest {
     }
 
     private void stubUserServiceOk() {
-        when(userServiceClient.getUser(USER_ID, USER_ID, "CUSTOMER"))
+
+        when(userServiceClient.getUser(USER_ID))
                 .thenReturn(new UserResponse(USER_ID, EMAIL));
-        when(userServiceClient.getAddress(USER_ID, ADDRESS_ID, USER_ID, "CUSTOMER"))
-                .thenReturn(new AddressResponse("123 Main Street", "Apt 4B", "Noida",
-                        "Uttar Pradesh", "India", "201301"));
+
+        when(userServiceClient.getAddress(USER_ID, ADDRESS_ID))
+                .thenReturn(
+                        new AddressResponse(
+                                "123 Main Street",
+                                "Apt 4B",
+                                "Noida",
+                                "Uttar Pradesh",
+                                "India",
+                                "201301"
+                        )
+                );
     }
 
     private static Order sampleOrder() {
-        Order order = new Order(CART_ID, USER_ID, EMAIL, "123 Main Street", "Apt 4B",
-                "Noida", "Uttar Pradesh", "India", "201301", new BigDecimal("100.00"));
-        order.addItem(new OrderItem(PRODUCT_ID, MERCHANT_ID, "Widget", 2, new BigDecimal("50.00")));
+
+        Order order = new Order(
+                CART_ID,
+                USER_ID,
+                EMAIL,
+                "123 Main Street",
+                "Apt 4B",
+                "Noida",
+                "Uttar Pradesh",
+                "India",
+                "201301",
+                new BigDecimal("100.00")
+        );
+
+        order.addItem(
+                new OrderItem(
+                        PRODUCT_ID,
+                        MERCHANT_ID,
+                        "Widget",
+                        2,
+                        new BigDecimal("50.00")
+                )
+        );
+
         return order;
     }
 
     private static FeignException.NotFound notFound() {
-        Request request = Request.create(Request.HttpMethod.GET, "http://user-service/api/users",
-                Collections.emptyMap(), null, StandardCharsets.UTF_8);
-        return new FeignException.NotFound("Not Found", request, null, Collections.emptyMap());
+
+        Request request = Request.create(
+                Request.HttpMethod.GET,
+                "http://user-service/api/users",
+                Collections.emptyMap(),
+                null,
+                StandardCharsets.UTF_8
+        );
+
+        return new FeignException.NotFound(
+                "Not Found",
+                request,
+                null,
+                Collections.emptyMap()
+        );
     }
 
     private static ErrorCode errorCodeOf(Throwable ex) {
@@ -108,66 +175,121 @@ class OrderServiceTest {
         @Test
         @DisplayName("snapshots email + address, persists the order and publishes OrderCreated")
         void placesOrder() {
+
             stubUserServiceOk();
-            when(orderRepository.existsByCartId(CART_ID)).thenReturn(false);
-            when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(call -> call.getArgument(0));
 
-            OrderResponse response = orderService.createOrder(validRequest());
+            when(orderRepository.existsByCartId(CART_ID))
+                    .thenReturn(false);
 
-            assertThat(response.status()).isEqualTo(OrderStatus.CREATED);
-            assertThat(response.email()).isEqualTo(EMAIL);
-            assertThat(response.totalPrice()).isEqualByComparingTo("100.00");
-            assertThat(response.shippingAddress().city()).isEqualTo("Noida");
-            assertThat(response.items()).hasSize(1);
-            assertThat(response.items().get(0).productName()).isEqualTo("Widget");
-            assertThat(response.items().get(0).lineTotal()).isEqualByComparingTo("100.00");
+            when(orderRepository.saveAndFlush(any(Order.class)))
+                    .thenAnswer(call -> call.getArgument(0));
 
-            verify(eventPublisher).publishEvent(any(OrderCreatedEvent.class));
+            OrderResponse response =
+                    orderService.createOrder(validRequest());
+
+            assertThat(response.status())
+                    .isEqualTo(OrderStatus.CREATED);
+
+            assertThat(response.email())
+                    .isEqualTo(EMAIL);
+
+            assertThat(response.totalPrice())
+                    .isEqualByComparingTo("100.00");
+
+            assertThat(response.shippingAddress().city())
+                    .isEqualTo("Noida");
+
+            assertThat(response.items())
+                    .hasSize(1);
+
+            assertThat(response.items().get(0).productName())
+                    .isEqualTo("Widget");
+
+            assertThat(response.items().get(0).lineTotal())
+                    .isEqualByComparingTo("100.00");
+
+            verify(eventPublisher)
+                    .publishEvent(any(OrderCreatedEvent.class));
         }
 
         @Test
         @DisplayName("rejects a totalPrice that does not match the line items, before any network or DB work")
         void rejectsTotalMismatch() {
-            assertThatThrownBy(() -> orderService.createOrder(requestWithTotal(new BigDecimal("999.00"))))
+
+            assertThatThrownBy(
+                    () -> orderService.createOrder(
+                            requestWithTotal(new BigDecimal("999.00"))
+                    )
+            )
                     .isInstanceOf(BadRequestException.class)
                     .extracting(OrderServiceTest::errorCodeOf)
                     .isEqualTo(ErrorCode.ORDER_TOTAL_MISMATCH);
 
             verifyNoInteractions(userServiceClient);
-            verify(orderRepository, never()).saveAndFlush(any());
-            verify(eventPublisher, never()).publishEvent(any());
+
+            verify(
+                    orderRepository,
+                    never()
+            ).saveAndFlush(any());
+
+            verify(
+                    eventPublisher,
+                    never()
+            ).publishEvent(any());
         }
 
         @Test
         @DisplayName("maps a User Service 404 to INVALID_ORDER_DETAILS and does not create an order")
         void rejectsUnknownUserOrAddress() {
-            when(userServiceClient.getUser(USER_ID, USER_ID, "CUSTOMER")).thenThrow(notFound());
 
-            assertThatThrownBy(() -> orderService.createOrder(validRequest()))
+            when(userServiceClient.getUser(USER_ID))
+                    .thenThrow(notFound());
+
+            assertThatThrownBy(
+                    () -> orderService.createOrder(validRequest())
+            )
                     .isInstanceOf(BadRequestException.class)
                     .extracting(OrderServiceTest::errorCodeOf)
                     .isEqualTo(ErrorCode.INVALID_ORDER_DETAILS);
 
-            verify(orderRepository, never()).saveAndFlush(any());
-            verify(eventPublisher, never()).publishEvent(any());
+            verify(
+                    orderRepository,
+                    never()
+            ).saveAndFlush(any());
+
+            verify(
+                    eventPublisher,
+                    never()
+            ).publishEvent(any());
         }
 
         @Test
         @DisplayName("rejects a second order for the same cart (one order per checkout)")
         void rejectsDuplicateCart() {
-            stubUserServiceOk();
-            when(orderRepository.existsByCartId(CART_ID)).thenReturn(true);
 
-            assertThatThrownBy(() -> orderService.createOrder(validRequest()))
+            stubUserServiceOk();
+
+            when(orderRepository.existsByCartId(CART_ID))
+                    .thenReturn(true);
+
+            assertThatThrownBy(
+                    () -> orderService.createOrder(validRequest())
+            )
                     .isInstanceOf(ConflictException.class)
                     .extracting(OrderServiceTest::errorCodeOf)
                     .isEqualTo(ErrorCode.DUPLICATE_ORDER);
 
-            verify(orderRepository, never()).saveAndFlush(any());
-            verify(eventPublisher, never()).publishEvent(any());
+            verify(
+                    orderRepository,
+                    never()
+            ).saveAndFlush(any());
+
+            verify(
+                    eventPublisher,
+                    never()
+            ).publishEvent(any());
         }
     }
-
 
     @Nested
     @DisplayName("reading orders")
@@ -176,20 +298,32 @@ class OrderServiceTest {
         @Test
         @DisplayName("returns the order with its items")
         void getsOrder() {
-            when(orderRepository.findWithItemsById(ORDER_ID)).thenReturn(Optional.of(sampleOrder()));
 
-            OrderResponse response = orderService.getOrder(ORDER_ID);
+            when(orderRepository.findWithItemsById(ORDER_ID))
+                    .thenReturn(
+                            Optional.of(sampleOrder())
+                    );
 
-            assertThat(response.status()).isEqualTo(OrderStatus.CREATED);
-            assertThat(response.items()).hasSize(1);
+            OrderResponse response =
+                    orderService.getOrder(ORDER_ID);
+
+            assertThat(response.status())
+                    .isEqualTo(OrderStatus.CREATED);
+
+            assertThat(response.items())
+                    .hasSize(1);
         }
 
         @Test
         @DisplayName("throws ORDER_NOT_FOUND for an unknown order")
         void getOrderNotFound() {
-            when(orderRepository.findWithItemsById(ORDER_ID)).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> orderService.getOrder(ORDER_ID))
+            when(orderRepository.findWithItemsById(ORDER_ID))
+                    .thenReturn(Optional.empty());
+
+            assertThatThrownBy(
+                    () -> orderService.getOrder(ORDER_ID)
+            )
                     .isInstanceOf(ResourceNotFoundException.class)
                     .extracting(OrderServiceTest::errorCodeOf)
                     .isEqualTo(ErrorCode.ORDER_NOT_FOUND);
@@ -198,32 +332,53 @@ class OrderServiceTest {
         @Test
         @DisplayName("returns a customer's order history")
         void getsHistory() {
-            when(orderRepository.findByUserIdOrderByCreatedAtDesc(USER_ID))
-                    .thenReturn(List.of(sampleOrder(), sampleOrder()));
 
-            assertThat(orderService.getOrderHistory(USER_ID)).hasSize(2);
+            when(
+                    orderRepository.findByUserIdOrderByCreatedAtDesc(USER_ID)
+            )
+                    .thenReturn(
+                            List.of(
+                                    sampleOrder(),
+                                    sampleOrder()
+                            )
+                    );
+
+            assertThat(
+                    orderService.getOrderHistory(USER_ID)
+            )
+                    .hasSize(2);
         }
 
         @Test
         @DisplayName("returns just the status for the status endpoint")
         void getsStatus() {
-            when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(sampleOrder()));
 
-            assertThat(orderService.getStatus(ORDER_ID).status()).isEqualTo(OrderStatus.CREATED);
+            when(orderRepository.findById(ORDER_ID))
+                    .thenReturn(
+                            Optional.of(sampleOrder())
+                    );
+
+            assertThat(
+                    orderService.getStatus(ORDER_ID).status()
+            )
+                    .isEqualTo(OrderStatus.CREATED);
         }
 
         @Test
         @DisplayName("throws ORDER_NOT_FOUND asking the status of an unknown order")
         void getStatusNotFound() {
-            when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> orderService.getStatus(ORDER_ID))
+            when(orderRepository.findById(ORDER_ID))
+                    .thenReturn(Optional.empty());
+
+            assertThatThrownBy(
+                    () -> orderService.getStatus(ORDER_ID)
+            )
                     .isInstanceOf(ResourceNotFoundException.class)
                     .extracting(OrderServiceTest::errorCodeOf)
                     .isEqualTo(ErrorCode.ORDER_NOT_FOUND);
         }
     }
-
 
     @Nested
     @DisplayName("cancelling an order")
@@ -232,44 +387,77 @@ class OrderServiceTest {
         @Test
         @DisplayName("moves a CREATED order to CANCELLED and publishes OrderCancelled")
         void cancels() {
+
             Order order = sampleOrder();
-            when(orderRepository.findWithItemsById(ORDER_ID)).thenReturn(Optional.of(order));
-            when(orderRepository.saveAndFlush(order)).thenAnswer(call -> call.getArgument(0));
 
-            OrderResponse response = orderService.cancelOrder(ORDER_ID);
+            when(orderRepository.findWithItemsById(ORDER_ID))
+                    .thenReturn(Optional.of(order));
 
-            assertThat(response.status()).isEqualTo(OrderStatus.CANCELLED);
-            verify(eventPublisher).publishEvent(any(OrderCancelledEvent.class));
+            when(orderRepository.saveAndFlush(order))
+                    .thenAnswer(call -> call.getArgument(0));
+
+            OrderResponse response =
+                    orderService.cancelOrder(ORDER_ID);
+
+            assertThat(response.status())
+                    .isEqualTo(OrderStatus.CANCELLED);
+
+            verify(eventPublisher)
+                    .publishEvent(any(OrderCancelledEvent.class));
         }
 
         @Test
         @DisplayName("throws ORDER_NOT_FOUND cancelling an unknown order")
         void cancelNotFound() {
-            when(orderRepository.findWithItemsById(ORDER_ID)).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> orderService.cancelOrder(ORDER_ID))
+            when(orderRepository.findWithItemsById(ORDER_ID))
+                    .thenReturn(Optional.empty());
+
+            assertThatThrownBy(
+                    () -> orderService.cancelOrder(ORDER_ID)
+            )
                     .isInstanceOf(ResourceNotFoundException.class)
                     .extracting(OrderServiceTest::errorCodeOf)
                     .isEqualTo(ErrorCode.ORDER_NOT_FOUND);
 
-            verify(orderRepository, never()).saveAndFlush(any());
-            verify(eventPublisher, never()).publishEvent(any());
+            verify(
+                    orderRepository,
+                    never()
+            ).saveAndFlush(any());
+
+            verify(
+                    eventPublisher,
+                    never()
+            ).publishEvent(any());
         }
 
         @Test
         @DisplayName("rejects cancelling an order that is already cancelled, and publishes nothing")
         void rejectsCancellingCancelled() {
-            Order order = sampleOrder();
-            order.cancel(); // already CANCELLED
-            when(orderRepository.findWithItemsById(ORDER_ID)).thenReturn(Optional.of(order));
 
-            assertThatThrownBy(() -> orderService.cancelOrder(ORDER_ID))
+            Order order = sampleOrder();
+
+            order.cancel();
+
+            when(orderRepository.findWithItemsById(ORDER_ID))
+                    .thenReturn(Optional.of(order));
+
+            assertThatThrownBy(
+                    () -> orderService.cancelOrder(ORDER_ID)
+            )
                     .isInstanceOf(ConflictException.class)
                     .extracting(OrderServiceTest::errorCodeOf)
                     .isEqualTo(ErrorCode.ORDER_NOT_CANCELLABLE);
 
-            verify(orderRepository, never()).saveAndFlush(any());
-            verify(eventPublisher, never()).publishEvent(any());
+            verify(
+                    orderRepository,
+                    never()
+            ).saveAndFlush(any());
+
+            verify(
+                    eventPublisher,
+                    never()
+            ).publishEvent(any());
         }
     }
 }

@@ -33,8 +33,6 @@ public class OrderService {
 
     private static final Logger log = LoggerFactory.getLogger(OrderService.class);
 
-    private static final String CUSTOMER_USER_TYPE = "CUSTOMER";
-
     private final OrderRepository orderRepository;
     private final UserServiceClient userServiceClient;
     private final ApplicationEventPublisher eventPublisher;
@@ -54,14 +52,22 @@ public class OrderService {
 
         UserResponse user;
         AddressResponse address;
+
         try {
-            user = userServiceClient.getUser(request.userId(), request.userId(), CUSTOMER_USER_TYPE);
+            user = userServiceClient.getUser(request.userId());
+
             address = userServiceClient.getAddress(
-                    request.userId(), request.addressId(), request.userId(), CUSTOMER_USER_TYPE);
+                    request.userId(),
+                    request.addressId()
+            );
+
         } catch (FeignException.NotFound ex) {
-            throw new BadRequestException(ErrorCode.INVALID_ORDER_DETAILS,
-                    "Cannot place order: user " + request.userId() + " or address "
-                            + request.addressId() + " could not be found in User Service.");
+            throw new BadRequestException(
+                    ErrorCode.INVALID_ORDER_DETAILS,
+                    "Cannot place order: user " + request.userId()
+                            + " or address " + request.addressId()
+                            + " could not be found in User Service."
+            );
         }
 
         if (orderRepository.existsByCartId(request.cartId())) {
@@ -69,19 +75,41 @@ public class OrderService {
         }
 
         Order order = new Order(
-                request.cartId(), request.userId(), user.email(),
-                address.addressLine1(), address.addressLine2(), address.city(),
-                address.state(), address.country(), address.pincode(),
-                request.totalPrice());
+                request.cartId(),
+                request.userId(),
+                user.email(),
+                address.addressLine1(),
+                address.addressLine2(),
+                address.city(),
+                address.state(),
+                address.country(),
+                address.pincode(),
+                request.totalPrice()
+        );
+
         for (OrderLineItemRequest line : request.items()) {
-            order.addItem(new OrderItem(line.productId(), line.merchantId(),
-                    line.productName(), line.quantity(), line.unitPrice()));
+            order.addItem(
+                    new OrderItem(
+                            line.productId(),
+                            line.merchantId(),
+                            line.productName(),
+                            line.quantity(),
+                            line.unitPrice()
+                    )
+            );
         }
 
         Order saved = orderRepository.saveAndFlush(order);
-        log.info("Placed order {} for user {} from cart {} ({} items, total {})",
-                saved.getId(), saved.getUserId(), saved.getCartId(),
-                saved.getItems().size(), saved.getTotalPrice());
+
+        log.info(
+                "Placed order {} for user {} from cart {} ({} items, total {})",
+                saved.getId(),
+                saved.getUserId(),
+                saved.getCartId(),
+                saved.getItems().size(),
+                saved.getTotalPrice()
+        );
+
 
         eventPublisher.publishEvent(OrderCreatedEvent.from(saved));
 
@@ -90,48 +118,80 @@ public class OrderService {
 
     @Transactional(readOnly = true)
     public OrderResponse getOrder(UUID orderId) {
+
         Order order = orderRepository.findWithItemsById(orderId)
                 .orElseThrow(() -> ResourceNotFoundException.order(orderId));
+
         return OrderMapper.toResponse(order);
     }
 
     @Transactional(readOnly = true)
     public List<OrderResponse> getOrderHistory(UUID userId) {
-        return orderRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
+
+        return orderRepository
+                .findByUserIdOrderByCreatedAtDesc(userId)
+                .stream()
                 .map(OrderMapper::toResponse)
                 .toList();
     }
 
     @Transactional(readOnly = true)
     public OrderStatusResponse getStatus(UUID orderId) {
+
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> ResourceNotFoundException.order(orderId));
-        return new OrderStatusResponse(order.getId(), order.getStatus(), order.getUpdatedAt());
+
+        return new OrderStatusResponse(
+                order.getId(),
+                order.getStatus(),
+                order.getUpdatedAt()
+        );
     }
 
     @Transactional
     public OrderResponse cancelOrder(UUID orderId) {
+
         Order order = orderRepository.findWithItemsById(orderId)
                 .orElseThrow(() -> ResourceNotFoundException.order(orderId));
 
         order.cancel();
-        Order saved = orderRepository.saveAndFlush(order);
-        log.info("Cancelled order {} for user {}", saved.getId(), saved.getUserId());
 
-        eventPublisher.publishEvent(OrderCancelledEvent.from(saved));
+        Order saved = orderRepository.saveAndFlush(order);
+
+        log.info(
+                "Cancelled order {} for user {}",
+                saved.getId(),
+                saved.getUserId()
+        );
+
+        eventPublisher.publishEvent(
+                OrderCancelledEvent.from(saved)
+        );
 
         return OrderMapper.toResponse(saved);
     }
 
     private void validateTotalMatchesItems(CreateOrderRequest request) {
-        BigDecimal computed = request.items().stream()
-                .map(line -> line.unitPrice().multiply(BigDecimal.valueOf(line.quantity())))
+
+        BigDecimal computed = request.items()
+                .stream()
+                .map(line ->
+                        line.unitPrice()
+                                .multiply(
+                                        BigDecimal.valueOf(line.quantity())
+                                )
+                )
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         if (request.totalPrice().compareTo(computed) != 0) {
-            throw new BadRequestException(ErrorCode.ORDER_TOTAL_MISMATCH,
-                    "totalPrice " + request.totalPrice() + " does not match the sum of the line items "
-                            + computed + " (unit price times quantity).");
+
+            throw new BadRequestException(
+                    ErrorCode.ORDER_TOTAL_MISMATCH,
+                    "totalPrice " + request.totalPrice()
+                            + " does not match the sum of the line items "
+                            + computed
+                            + " (unit price times quantity)."
+            );
         }
     }
 }

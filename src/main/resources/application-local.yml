@@ -12,4 +12,4 @@ logging:
 
 orders:
   events:
-    enabled: ${ORDER_EVENTS_ENABLED:false}
+    enabled: ${ORDER_EVENTS_ENABLED:true}
