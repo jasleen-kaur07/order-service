@@ -5,9 +5,12 @@ import java.util.UUID;
 
 public record OrderLineItemResponse(
         UUID id,
-        UUID productId,
-        UUID merchantId,
+        UUID cartItemId,
+        String productId,
+        String variantId,
+        String merchantId,
         String productName,
+        String imageUrl,
         int quantity,
         BigDecimal unitPrice,
         BigDecimal lineTotal

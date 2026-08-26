@@ -48,7 +48,7 @@ spring:
             loggerLevel: basic
 
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:10.17.48.68:9092}
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
@@ -65,8 +65,7 @@ orders:
   events:
     enabled: ${ORDER_EVENTS_ENABLED:true}
     topics:
-      order-created: ${ORDER_CREATED_TOPIC:order.created}
-      order-cancelled: ${ORDER_CANCELLED_TOPIC:order.cancelled}
+      order-placed: ${ORDER_PLACED_TOPIC:order-placed}
 
 springdoc:
   api-docs:

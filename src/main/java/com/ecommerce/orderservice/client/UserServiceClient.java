@@ -19,9 +19,8 @@ public interface UserServiceClient {
             @PathVariable("userId") UUID userId
     );
 
-    @GetMapping("/api/users/{userId}/addresses/{addressId}")
-    AddressResponse getAddress(
-            @PathVariable("userId") UUID userId,
-            @PathVariable("addressId") UUID addressId
+    @GetMapping("/api/users/{userId}/addresses/default")
+    AddressResponse getDefaultAddress(
+            @PathVariable("userId") UUID userId
     );
 }

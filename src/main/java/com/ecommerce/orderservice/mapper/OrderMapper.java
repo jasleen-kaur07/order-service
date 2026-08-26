@@ -14,7 +14,9 @@ public final class OrderMapper {
     }
 
     public static OrderResponse toResponse(Order order) {
-        List<OrderLineItemResponse> items = order.getItems().stream()
+
+        List<OrderLineItemResponse> items = order.getItems()
+                .stream()
                 .map(OrderMapper::toItemResponse)
                 .toList();
 
@@ -31,20 +33,27 @@ public final class OrderMapper {
                         order.getShipCity(),
                         order.getShipState(),
                         order.getShipCountry(),
-                        order.getShipPincode()),
+                        order.getShipPincode()
+                ),
                 items,
                 order.getCreatedAt(),
-                order.getUpdatedAt());
+                order.getUpdatedAt()
+        );
     }
 
     private static OrderLineItemResponse toItemResponse(OrderItem item) {
+
         return new OrderLineItemResponse(
                 item.getId(),
+                item.getCartItemId(),
                 item.getProductId(),
+                item.getVariantId(),
                 item.getMerchantId(),
                 item.getProductNameSnapshot(),
+                item.getProductImageSnapshot(),
                 item.getQuantity(),
                 item.getUnitPricePaid(),
-                item.lineTotal());
+                item.getLineTotalPaid()
+        );
     }
 }

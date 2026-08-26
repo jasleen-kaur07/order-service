@@ -9,8 +9,7 @@ import com.ecommerce.orderservice.dto.OrderResponse;
 import com.ecommerce.orderservice.entity.Order;
 import com.ecommerce.orderservice.entity.OrderItem;
 import com.ecommerce.orderservice.entity.OrderStatus;
-import com.ecommerce.orderservice.event.OrderCancelledEvent;
-import com.ecommerce.orderservice.event.OrderCreatedEvent;
+import com.ecommerce.orderservice.event.OrderPlacedEvent;
 import com.ecommerce.orderservice.exception.ApiException;
 import com.ecommerce.orderservice.exception.BadRequestException;
 import com.ecommerce.orderservice.exception.ConflictException;
@@ -55,14 +54,12 @@ class OrderServiceTest {
     private static final UUID USER_ID =
             UUID.fromString("cccccccc-cccc-cccc-cccc-cccccccccccc");
 
-    private static final UUID ADDRESS_ID =
+    private static final UUID CART_ITEM_ID =
             UUID.fromString("dddddddd-dddd-dddd-dddd-dddddddddddd");
 
-    private static final UUID PRODUCT_ID =
-            UUID.fromString("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee");
-
-    private static final UUID MERCHANT_ID =
-            UUID.fromString("ffffffff-ffff-ffff-ffff-ffffffffffff");
+    private static final String PRODUCT_ID = "product-101";
+    private static final String VARIANT_ID = "variant-101";
+    private static final String MERCHANT_ID = "merchant-201";
 
     private static final String EMAIL = "jasleen@gmail.com";
 
@@ -78,18 +75,23 @@ class OrderServiceTest {
     @InjectMocks
     private OrderService orderService;
 
-    private static CreateOrderRequest requestWithTotal(BigDecimal total) {
+    private static CreateOrderRequest requestWithTotal(
+            BigDecimal total) {
+
         return new CreateOrderRequest(
                 CART_ID,
                 USER_ID,
-                ADDRESS_ID,
                 List.of(
                         new OrderLineItemRequest(
+                                CART_ITEM_ID,
                                 PRODUCT_ID,
+                                VARIANT_ID,
                                 MERCHANT_ID,
                                 "Widget",
+                                "https://example.com/widget.jpg",
                                 2,
-                                new BigDecimal("50.00")
+                                new BigDecimal("50.00"),
+                                new BigDecimal("100.00")
                         )
                 ),
                 total
@@ -97,15 +99,24 @@ class OrderServiceTest {
     }
 
     private static CreateOrderRequest validRequest() {
-        return requestWithTotal(new BigDecimal("100.00"));
+        return requestWithTotal(
+                new BigDecimal("100.00")
+        );
     }
 
     private void stubUserServiceOk() {
 
         when(userServiceClient.getUser(USER_ID))
-                .thenReturn(new UserResponse(USER_ID, EMAIL));
+                .thenReturn(
+                        new UserResponse(
+                                USER_ID,
+                                EMAIL,
+                                "Jasleen",
+                                "Kaur"
+                        )
+                );
 
-        when(userServiceClient.getAddress(USER_ID, ADDRESS_ID))
+        when(userServiceClient.getDefaultAddress(USER_ID))
                 .thenReturn(
                         new AddressResponse(
                                 "123 Main Street",
@@ -135,11 +146,15 @@ class OrderServiceTest {
 
         order.addItem(
                 new OrderItem(
+                        CART_ITEM_ID,
                         PRODUCT_ID,
+                        VARIANT_ID,
                         MERCHANT_ID,
                         "Widget",
+                        "https://example.com/widget.jpg",
                         2,
-                        new BigDecimal("50.00")
+                        new BigDecimal("50.00"),
+                        new BigDecimal("100.00")
                 )
         );
 
@@ -173,7 +188,9 @@ class OrderServiceTest {
     class Create {
 
         @Test
-        @DisplayName("snapshots email + address, persists the order and publishes OrderCreated")
+        @DisplayName(
+                "snapshots email + address, persists the order and publishes OrderPlaced"
+        )
         void placesOrder() {
 
             stubUserServiceOk();
@@ -181,11 +198,36 @@ class OrderServiceTest {
             when(orderRepository.existsByCartId(CART_ID))
                     .thenReturn(false);
 
+            /*
+             * In the real application Hibernate generates the Order UUID
+             * because Order.id uses @GeneratedValue.
+             *
+             * This is a unit test, so there is no Hibernate/database.
+             * We therefore simulate the generated ID here.
+             */
             when(orderRepository.saveAndFlush(any(Order.class)))
-                    .thenAnswer(call -> call.getArgument(0));
+                    .thenAnswer(call -> {
+                        Order order = call.getArgument(0);
+
+                        try {
+                            var idField =
+                                    Order.class.getDeclaredField("id");
+
+                            idField.setAccessible(true);
+                            idField.set(order, ORDER_ID);
+
+                        } catch (ReflectiveOperationException e) {
+                            throw new RuntimeException(e);
+                        }
+
+                        return order;
+                    });
 
             OrderResponse response =
                     orderService.createOrder(validRequest());
+
+            assertThat(response.id())
+                    .isEqualTo(ORDER_ID);
 
             assertThat(response.status())
                     .isEqualTo(OrderStatus.CREATED);
@@ -209,16 +251,20 @@ class OrderServiceTest {
                     .isEqualByComparingTo("100.00");
 
             verify(eventPublisher)
-                    .publishEvent(any(OrderCreatedEvent.class));
+                    .publishEvent(any(OrderPlacedEvent.class));
         }
 
         @Test
-        @DisplayName("rejects a totalPrice that does not match the line items, before any network or DB work")
+        @DisplayName(
+                "rejects a totalPrice that does not match the line items, before any network or DB work"
+        )
         void rejectsTotalMismatch() {
 
             assertThatThrownBy(
                     () -> orderService.createOrder(
-                            requestWithTotal(new BigDecimal("999.00"))
+                            requestWithTotal(
+                                    new BigDecimal("999.00")
+                            )
                     )
             )
                     .isInstanceOf(BadRequestException.class)
@@ -239,7 +285,9 @@ class OrderServiceTest {
         }
 
         @Test
-        @DisplayName("maps a User Service 404 to INVALID_ORDER_DETAILS and does not create an order")
+        @DisplayName(
+                "maps a User Service 404 to INVALID_ORDER_DETAILS and does not create an order"
+        )
         void rejectsUnknownUserOrAddress() {
 
             when(userServiceClient.getUser(USER_ID))
@@ -264,7 +312,9 @@ class OrderServiceTest {
         }
 
         @Test
-        @DisplayName("rejects a second order for the same cart (one order per checkout)")
+        @DisplayName(
+                "rejects a second order for the same cart"
+        )
         void rejectsDuplicateCart() {
 
             stubUserServiceOk();
@@ -315,7 +365,9 @@ class OrderServiceTest {
         }
 
         @Test
-        @DisplayName("throws ORDER_NOT_FOUND for an unknown order")
+        @DisplayName(
+                "throws ORDER_NOT_FOUND for an unknown order"
+        )
         void getOrderNotFound() {
 
             when(orderRepository.findWithItemsById(ORDER_ID))
@@ -334,7 +386,9 @@ class OrderServiceTest {
         void getsHistory() {
 
             when(
-                    orderRepository.findByUserIdOrderByCreatedAtDesc(USER_ID)
+                    orderRepository.findByUserIdOrderByCreatedAtDesc(
+                            USER_ID
+                    )
             )
                     .thenReturn(
                             List.of(
@@ -350,7 +404,9 @@ class OrderServiceTest {
         }
 
         @Test
-        @DisplayName("returns just the status for the status endpoint")
+        @DisplayName(
+                "returns just the status for the status endpoint"
+        )
         void getsStatus() {
 
             when(orderRepository.findById(ORDER_ID))
@@ -365,7 +421,9 @@ class OrderServiceTest {
         }
 
         @Test
-        @DisplayName("throws ORDER_NOT_FOUND asking the status of an unknown order")
+        @DisplayName(
+                "throws ORDER_NOT_FOUND asking the status of an unknown order"
+        )
         void getStatusNotFound() {
 
             when(orderRepository.findById(ORDER_ID))
@@ -385,7 +443,9 @@ class OrderServiceTest {
     class Cancel {
 
         @Test
-        @DisplayName("moves a CREATED order to CANCELLED and publishes OrderCancelled")
+        @DisplayName(
+                "moves a CREATED order to CANCELLED without publishing a Kafka event"
+        )
         void cancels() {
 
             Order order = sampleOrder();
@@ -402,12 +462,14 @@ class OrderServiceTest {
             assertThat(response.status())
                     .isEqualTo(OrderStatus.CANCELLED);
 
-            verify(eventPublisher)
-                    .publishEvent(any(OrderCancelledEvent.class));
+            verify(eventPublisher, never())
+                    .publishEvent(any());
         }
 
         @Test
-        @DisplayName("throws ORDER_NOT_FOUND cancelling an unknown order")
+        @DisplayName(
+                "throws ORDER_NOT_FOUND cancelling an unknown order"
+        )
         void cancelNotFound() {
 
             when(orderRepository.findWithItemsById(ORDER_ID))
@@ -432,7 +494,9 @@ class OrderServiceTest {
         }
 
         @Test
-        @DisplayName("rejects cancelling an order that is already cancelled, and publishes nothing")
+        @DisplayName(
+                "rejects cancelling an order that is already cancelled"
+        )
         void rejectsCancellingCancelled() {
 
             Order order = sampleOrder();

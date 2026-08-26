@@ -12,23 +12,74 @@ import java.util.UUID;
 
 public record OrderLineItemRequest(
 
-        @NotNull(message = "productId is required")
-        UUID productId,
+        @NotNull(message = "cartItemId is required")
+        UUID cartItemId,
 
-        @NotNull(message = "merchantId is required")
-        UUID merchantId,
+        @NotBlank(message = "productId is required")
+        @Size(
+                max = 255,
+                message = "productId must not exceed 255 characters"
+        )
+        String productId,
+
+        @NotBlank(message = "variantId is required")
+        @Size(
+                max = 255,
+                message = "variantId must not exceed 255 characters"
+        )
+        String variantId,
+
+        @NotBlank(message = "merchantId is required")
+        @Size(
+                max = 255,
+                message = "merchantId must not exceed 255 characters"
+        )
+        String merchantId,
 
         @NotBlank(message = "productName is required")
-        @Size(max = 255, message = "productName must not exceed 255 characters")
+        @Size(
+                max = 255,
+                message = "productName must not exceed 255 characters"
+        )
         String productName,
 
+        @Size(
+                max = 1000,
+                message = "imageUrl must not exceed 1000 characters"
+        )
+        String imageUrl,
+
         @NotNull(message = "quantity is required")
-        @Min(value = 1, message = "quantity must be at least 1")
+        @Min(
+                value = 1,
+                message = "quantity must be at least 1"
+        )
         Integer quantity,
 
         @NotNull(message = "unitPrice is required")
-        @DecimalMin(value = "0.00", inclusive = false, message = "unitPrice must be greater than zero")
-        @Digits(integer = 10, fraction = 2, message = "unitPrice must have at most 10 integer and 2 fraction digits")
-        BigDecimal unitPrice
+        @DecimalMin(
+                value = "0.00",
+                inclusive = false,
+                message = "unitPrice must be greater than zero"
+        )
+        @Digits(
+                integer = 10,
+                fraction = 2,
+                message = "unitPrice must have at most 10 integer and 2 fraction digits"
+        )
+        BigDecimal unitPrice,
+
+        @NotNull(message = "lineTotal is required")
+        @DecimalMin(
+                value = "0.00",
+                inclusive = false,
+                message = "lineTotal must be greater than zero"
+        )
+        @Digits(
+                integer = 10,
+                fraction = 2,
+                message = "lineTotal must have at most 10 integer and 2 fraction digits"
+        )
+        BigDecimal lineTotal
 ) {
 }

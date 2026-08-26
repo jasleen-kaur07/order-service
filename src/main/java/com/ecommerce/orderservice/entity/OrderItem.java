@@ -30,20 +30,32 @@ public class OrderItem {
     @JoinColumn(name = "order_id", nullable = false, updatable = false)
     private Order order;
 
-    @Column(name = "product_id", nullable = false, updatable = false)
-    private UUID productId;
+    @Column(name = "cart_item_id", nullable = false, updatable = false)
+    private UUID cartItemId;
 
-    @Column(name = "merchant_id", nullable = false, updatable = false)
-    private UUID merchantId;
+    @Column(name = "product_id", nullable = false, updatable = false, length = 255)
+    private String productId;
+
+    @Column(name = "variant_id", nullable = false, updatable = false, length = 255)
+    private String variantId;
+
+    @Column(name = "merchant_id", nullable = false, updatable = false, length = 255)
+    private String merchantId;
 
     @Column(name = "product_name_snapshot", nullable = false, length = 255, updatable = false)
     private String productNameSnapshot;
+
+    @Column(name = "product_image_snapshot", length = 1000, updatable = false)
+    private String productImageSnapshot;
 
     @Column(name = "quantity", nullable = false, updatable = false)
     private int quantity;
 
     @Column(name = "unit_price_paid", nullable = false, precision = 12, scale = 2, updatable = false)
     private BigDecimal unitPricePaid;
+
+    @Column(name = "line_total_paid", nullable = false, precision = 12, scale = 2, updatable = false)
+    private BigDecimal lineTotalPaid;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -56,13 +68,26 @@ public class OrderItem {
     protected OrderItem() {
     }
 
-    public OrderItem(UUID productId, UUID merchantId, String productNameSnapshot,
-                     int quantity, BigDecimal unitPricePaid) {
+    public OrderItem(
+            UUID cartItemId,
+            String productId,
+            String variantId,
+            String merchantId,
+            String productNameSnapshot,
+            String productImageSnapshot,
+            int quantity,
+            BigDecimal unitPricePaid,
+            BigDecimal lineTotalPaid) {
+
+        this.cartItemId = cartItemId;
         this.productId = productId;
+        this.variantId = variantId;
         this.merchantId = merchantId;
         this.productNameSnapshot = productNameSnapshot;
+        this.productImageSnapshot = productImageSnapshot;
         this.quantity = quantity;
         this.unitPricePaid = unitPricePaid;
+        this.lineTotalPaid = lineTotalPaid;
     }
 
     void setOrder(Order order) {
@@ -70,7 +95,9 @@ public class OrderItem {
     }
 
     public BigDecimal lineTotal() {
-        return unitPricePaid.multiply(BigDecimal.valueOf(quantity));
+        return unitPricePaid.multiply(
+                BigDecimal.valueOf(quantity)
+        );
     }
 
     public UUID getId() {
@@ -81,16 +108,28 @@ public class OrderItem {
         return order;
     }
 
-    public UUID getProductId() {
+    public UUID getCartItemId() {
+        return cartItemId;
+    }
+
+    public String getProductId() {
         return productId;
     }
 
-    public UUID getMerchantId() {
+    public String getVariantId() {
+        return variantId;
+    }
+
+    public String getMerchantId() {
         return merchantId;
     }
 
     public String getProductNameSnapshot() {
         return productNameSnapshot;
+    }
+
+    public String getProductImageSnapshot() {
+        return productImageSnapshot;
     }
 
     public int getQuantity() {
@@ -99,6 +138,10 @@ public class OrderItem {
 
     public BigDecimal getUnitPricePaid() {
         return unitPricePaid;
+    }
+
+    public BigDecimal getLineTotalPaid() {
+        return lineTotalPaid;
     }
 
     public Instant getCreatedAt() {
@@ -114,9 +157,11 @@ public class OrderItem {
         if (this == other) {
             return true;
         }
+
         if (!(other instanceof OrderItem orderItem)) {
             return false;
         }
+
         return id != null && Objects.equals(id, orderItem.id);
     }
 
@@ -127,7 +172,14 @@ public class OrderItem {
 
     @Override
     public String toString() {
-        return "OrderItem{id=" + id + ", productId=" + productId + ", quantity=" + quantity
-                + ", unitPricePaid=" + unitPricePaid + '}';
+        return "OrderItem{id=" + id
+                + ", cartItemId=" + cartItemId
+                + ", productId=" + productId
+                + ", variantId=" + variantId
+                + ", merchantId=" + merchantId
+                + ", quantity=" + quantity
+                + ", unitPricePaid=" + unitPricePaid
+                + ", lineTotalPaid=" + lineTotalPaid
+                + '}';
     }
 }
