@@ -1,11 +1,9 @@
 package com.ecommerce.orderservice.service;
 
-import com.ecommerce.orderservice.client.UserServiceClient;
-import com.ecommerce.orderservice.client.dto.AddressResponse;
-import com.ecommerce.orderservice.client.dto.UserResponse;
 import com.ecommerce.orderservice.dto.CreateOrderRequest;
 import com.ecommerce.orderservice.dto.OrderLineItemRequest;
 import com.ecommerce.orderservice.dto.OrderResponse;
+import com.ecommerce.orderservice.dto.ShippingAddressRequest;
 import com.ecommerce.orderservice.entity.Order;
 import com.ecommerce.orderservice.entity.OrderItem;
 import com.ecommerce.orderservice.entity.OrderStatus;
@@ -16,8 +14,6 @@ import com.ecommerce.orderservice.exception.ConflictException;
 import com.ecommerce.orderservice.exception.ErrorCode;
 import com.ecommerce.orderservice.exception.ResourceNotFoundException;
 import com.ecommerce.orderservice.repository.OrderRepository;
-import feign.FeignException;
-import feign.Request;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -28,8 +24,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -39,7 +33,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -67,13 +60,21 @@ class OrderServiceTest {
     private OrderRepository orderRepository;
 
     @Mock
-    private UserServiceClient userServiceClient;
-
-    @Mock
     private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private OrderService orderService;
+
+    private static ShippingAddressRequest sampleShippingAddress() {
+        return new ShippingAddressRequest(
+                "123 Main Street",
+                "Apt 4B",
+                "Noida",
+                "Uttar Pradesh",
+                "India",
+                "201301"
+        );
+    }
 
     private static CreateOrderRequest requestWithTotal(
             BigDecimal total) {
@@ -81,6 +82,10 @@ class OrderServiceTest {
         return new CreateOrderRequest(
                 CART_ID,
                 USER_ID,
+                EMAIL,
+                "Jasleen",
+                "Kaur",
+                sampleShippingAddress(),
                 List.of(
                         new OrderLineItemRequest(
                                 CART_ITEM_ID,
@@ -104,37 +109,14 @@ class OrderServiceTest {
         );
     }
 
-    private void stubUserServiceOk() {
-
-        when(userServiceClient.getUser(USER_ID))
-                .thenReturn(
-                        new UserResponse(
-                                USER_ID,
-                                EMAIL,
-                                "Jasleen",
-                                "Kaur"
-                        )
-                );
-
-        when(userServiceClient.getDefaultAddress(USER_ID))
-                .thenReturn(
-                        new AddressResponse(
-                                "123 Main Street",
-                                "Apt 4B",
-                                "Noida",
-                                "Uttar Pradesh",
-                                "India",
-                                "201301"
-                        )
-                );
-    }
-
     private static Order sampleOrder() {
 
         Order order = new Order(
                 CART_ID,
                 USER_ID,
                 EMAIL,
+                "Jasleen",
+                "Kaur",
                 "123 Main Street",
                 "Apt 4B",
                 "Noida",
@@ -161,24 +143,6 @@ class OrderServiceTest {
         return order;
     }
 
-    private static FeignException.NotFound notFound() {
-
-        Request request = Request.create(
-                Request.HttpMethod.GET,
-                "http://user-service/api/users",
-                Collections.emptyMap(),
-                null,
-                StandardCharsets.UTF_8
-        );
-
-        return new FeignException.NotFound(
-                "Not Found",
-                request,
-                null,
-                Collections.emptyMap()
-        );
-    }
-
     private static ErrorCode errorCodeOf(Throwable ex) {
         return ((ApiException) ex).getErrorCode();
     }
@@ -189,11 +153,9 @@ class OrderServiceTest {
 
         @Test
         @DisplayName(
-                "snapshots email + address, persists the order and publishes OrderPlaced"
+                "snapshots the identity + address Cart Service sent, persists the order and publishes OrderPlaced"
         )
         void placesOrder() {
-
-            stubUserServiceOk();
 
             when(orderRepository.existsByCartId(CART_ID))
                     .thenReturn(false);
@@ -235,6 +197,9 @@ class OrderServiceTest {
             assertThat(response.email())
                     .isEqualTo(EMAIL);
 
+            assertThat(response.firstName())
+                    .isEqualTo("Jasleen");
+
             assertThat(response.totalPrice())
                     .isEqualByComparingTo("100.00");
 
@@ -256,7 +221,7 @@ class OrderServiceTest {
 
         @Test
         @DisplayName(
-                "rejects a totalPrice that does not match the line items, before any network or DB work"
+                "rejects a totalPrice that does not match the line items, before touching the database"
         )
         void rejectsTotalMismatch() {
 
@@ -270,35 +235,6 @@ class OrderServiceTest {
                     .isInstanceOf(BadRequestException.class)
                     .extracting(OrderServiceTest::errorCodeOf)
                     .isEqualTo(ErrorCode.ORDER_TOTAL_MISMATCH);
-
-            verifyNoInteractions(userServiceClient);
-
-            verify(
-                    orderRepository,
-                    never()
-            ).saveAndFlush(any());
-
-            verify(
-                    eventPublisher,
-                    never()
-            ).publishEvent(any());
-        }
-
-        @Test
-        @DisplayName(
-                "maps a User Service 404 to INVALID_ORDER_DETAILS and does not create an order"
-        )
-        void rejectsUnknownUserOrAddress() {
-
-            when(userServiceClient.getUser(USER_ID))
-                    .thenThrow(notFound());
-
-            assertThatThrownBy(
-                    () -> orderService.createOrder(validRequest())
-            )
-                    .isInstanceOf(BadRequestException.class)
-                    .extracting(OrderServiceTest::errorCodeOf)
-                    .isEqualTo(ErrorCode.INVALID_ORDER_DETAILS);
 
             verify(
                     orderRepository,
@@ -316,8 +252,6 @@ class OrderServiceTest {
                 "rejects a second order for the same cart"
         )
         void rejectsDuplicateCart() {
-
-            stubUserServiceOk();
 
             when(orderRepository.existsByCartId(CART_ID))
                     .thenReturn(true);

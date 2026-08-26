@@ -1,7 +1,6 @@
 package com.ecommerce.orderservice.exception;
 
 import com.ecommerce.orderservice.dto.ErrorResponse;
-import feign.FeignException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
@@ -34,7 +33,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleBodyValidation(MethodArgumentNotValidException ex,
-                                                            HttpServletRequest request) {
+                                                              HttpServletRequest request) {
         List<ErrorResponse.FieldError> fieldErrors = ex.getBindingResult().getFieldErrors().stream()
                 .map(error -> new ErrorResponse.FieldError(error.getField(), error.getDefaultMessage()))
                 .toList();
@@ -47,7 +46,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<ErrorResponse> handleParamValidation(ConstraintViolationException ex,
-                                                             HttpServletRequest request) {
+                                                               HttpServletRequest request) {
         List<ErrorResponse.FieldError> fieldErrors = ex.getConstraintViolations().stream()
                 .map(violation -> new ErrorResponse.FieldError(
                         violation.getPropertyPath().toString(), violation.getMessage()))
@@ -61,7 +60,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ErrorResponse> handleUnreadableBody(HttpMessageNotReadableException ex,
-                                                            HttpServletRequest request) {
+                                                              HttpServletRequest request) {
         log.debug("Unreadable request body at {}: {}", request.getRequestURI(), ex.getMessage());
         return build(ErrorCode.BAD_REQUEST,
                 "Request body is malformed or contains an invalid value. "
@@ -85,16 +84,6 @@ public class GlobalExceptionHandler {
         return build(ErrorCode.BAD_REQUEST,
                 "The request conflicts with a database constraint. If you were placing an order, "
                         + "it may already exist for this cart; please check before retrying.",
-                request);
-    }
-
-    @ExceptionHandler(FeignException.class)
-    public ResponseEntity<ErrorResponse> handleUpstreamFailure(FeignException ex,
-                                                               HttpServletRequest request) {
-        log.error("Upstream service call failed while handling {} {} (status {})",
-                request.getMethod(), request.getRequestURI(), ex.status(), ex);
-        return build(ErrorCode.UPSTREAM_UNAVAILABLE,
-                "A service this request depends on is currently unavailable. Please retry shortly.",
                 request);
     }
 

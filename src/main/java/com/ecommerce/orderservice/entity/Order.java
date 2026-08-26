@@ -40,6 +40,11 @@ public class Order {
     @Column(name = "email_snapshot", nullable = false, length = 255, updatable = false)
     private String emailSnapshot;
 
+    @Column(name = "first_name_snapshot", length = 100, updatable = false)
+    private String firstNameSnapshot;
+
+    @Column(name = "last_name_snapshot", length = 100, updatable = false)
+    private String lastNameSnapshot;
 
     @Column(name = "ship_line1", nullable = false, length = 255, updatable = false)
     private String shipLine1;
@@ -81,11 +86,14 @@ public class Order {
     }
 
     public Order(UUID cartId, UUID userId, String emailSnapshot,
+                 String firstNameSnapshot, String lastNameSnapshot,
                  String shipLine1, String shipLine2, String shipCity, String shipState,
                  String shipCountry, String shipPincode, BigDecimal totalPrice) {
         this.cartId = cartId;
         this.userId = userId;
         this.emailSnapshot = emailSnapshot;
+        this.firstNameSnapshot = firstNameSnapshot;
+        this.lastNameSnapshot = lastNameSnapshot;
         this.shipLine1 = shipLine1;
         this.shipLine2 = shipLine2;
         this.shipCity = shipCity;
@@ -126,6 +134,14 @@ public class Order {
 
     public String getEmailSnapshot() {
         return emailSnapshot;
+    }
+
+    public String getFirstNameSnapshot() {
+        return firstNameSnapshot;
+    }
+
+    public String getLastNameSnapshot() {
+        return lastNameSnapshot;
     }
 
     public String getShipLine1() {

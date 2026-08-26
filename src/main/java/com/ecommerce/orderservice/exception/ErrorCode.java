@@ -9,18 +9,13 @@ public enum ErrorCode {
 
     ORDER_TOTAL_MISMATCH(HttpStatus.BAD_REQUEST),
 
-    INVALID_ORDER_DETAILS(HttpStatus.BAD_REQUEST),
-
-
     ORDER_NOT_FOUND(HttpStatus.NOT_FOUND),
 
     DUPLICATE_ORDER(HttpStatus.CONFLICT),
 
     ORDER_NOT_CANCELLABLE(HttpStatus.CONFLICT),
 
-    INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR),
-
-    UPSTREAM_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE);
+    INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR);
 
     private final HttpStatus status;
 

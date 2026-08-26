@@ -38,15 +38,6 @@ spring:
     serialization:
       write-dates-as-timestamps: false
 
-  cloud:
-    openfeign:
-      client:
-        config:
-          default:
-            connectTimeout: 2000
-            readTimeout: 3000
-            loggerLevel: basic
-
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:10.17.48.68:9092}
     producer:
@@ -56,10 +47,6 @@ spring:
       properties:
         max.block.ms: 2000
         spring.json.add.type.headers: false
-
-integration:
-  user-service:
-    url: ${USER_SERVICE_URL:http://localhost:8082}
 
 orders:
   events:

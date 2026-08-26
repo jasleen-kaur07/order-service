@@ -12,6 +12,8 @@ public record OrderResponse(
         UUID cartId,
         UUID userId,
         String email,
+        String firstName,
+        String lastName,
         OrderStatus status,
         BigDecimal totalPrice,
         ShippingAddressResponse shippingAddress,

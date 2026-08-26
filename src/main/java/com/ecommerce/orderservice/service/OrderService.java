@@ -1,12 +1,10 @@
 package com.ecommerce.orderservice.service;
 
-import com.ecommerce.orderservice.client.UserServiceClient;
-import com.ecommerce.orderservice.client.dto.AddressResponse;
-import com.ecommerce.orderservice.client.dto.UserResponse;
 import com.ecommerce.orderservice.dto.CreateOrderRequest;
 import com.ecommerce.orderservice.dto.OrderLineItemRequest;
 import com.ecommerce.orderservice.dto.OrderResponse;
 import com.ecommerce.orderservice.dto.OrderStatusResponse;
+import com.ecommerce.orderservice.dto.ShippingAddressRequest;
 import com.ecommerce.orderservice.entity.Order;
 import com.ecommerce.orderservice.entity.OrderItem;
 import com.ecommerce.orderservice.event.OrderPlacedEvent;
@@ -16,7 +14,6 @@ import com.ecommerce.orderservice.exception.ErrorCode;
 import com.ecommerce.orderservice.exception.ResourceNotFoundException;
 import com.ecommerce.orderservice.mapper.OrderMapper;
 import com.ecommerce.orderservice.repository.OrderRepository;
-import feign.FeignException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
@@ -34,65 +31,38 @@ public class OrderService {
             LoggerFactory.getLogger(OrderService.class);
 
     private final OrderRepository orderRepository;
-    private final UserServiceClient userServiceClient;
     private final ApplicationEventPublisher eventPublisher;
 
     public OrderService(
             OrderRepository orderRepository,
-            UserServiceClient userServiceClient,
             ApplicationEventPublisher eventPublisher) {
 
         this.orderRepository = orderRepository;
-        this.userServiceClient = userServiceClient;
         this.eventPublisher = eventPublisher;
     }
 
+    /**
+     * Cart Service has already resolved the customer's identity and delivery address
+     * (it is the caller that owns checkout) and snapshots both onto this request, so
+     * Order Service no longer calls User Service itself here.
+     */
     @Transactional
     public OrderResponse createOrder(CreateOrderRequest request) {
 
         validateTotalMatchesItems(request);
 
-        UserResponse user;
-        AddressResponse address;
-
-        try {
-
-            user = userServiceClient.getUser(
-                    request.userId()
-            );
-
-            address = userServiceClient.getDefaultAddress(
-                    request.userId()
-            );
-
-        } catch (FeignException.NotFound ex) {
-
-            throw new BadRequestException(
-                    ErrorCode.INVALID_ORDER_DETAILS,
-                    "Cannot place order: user "
-                            + request.userId()
-                            + " or default address could not be found."
-            );
-
-        } catch (FeignException ex) {
-
-            throw new BadRequestException(
-                    ErrorCode.UPSTREAM_UNAVAILABLE,
-                    "User Service is currently unavailable."
-            );
-        }
-
         if (orderRepository.existsByCartId(request.cartId())) {
-
-            throw ConflictException.duplicateOrder(
-                    request.cartId()
-            );
+            throw ConflictException.duplicateOrder(request.cartId());
         }
+
+        ShippingAddressRequest address = request.shippingAddress();
 
         Order order = new Order(
                 request.cartId(),
                 request.userId(),
-                user.email(),
+                request.email(),
+                request.firstName(),
+                request.lastName(),
                 address.addressLine1(),
                 address.addressLine2(),
                 address.city(),
@@ -134,8 +104,8 @@ public class OrderService {
         eventPublisher.publishEvent(
                 OrderPlacedEvent.from(
                         saved,
-                        user.firstName(),
-                        user.lastName()
+                        request.firstName(),
+                        request.lastName()
                 )
         );
 

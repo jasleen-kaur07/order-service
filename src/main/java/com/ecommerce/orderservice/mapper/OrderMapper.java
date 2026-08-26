@@ -25,6 +25,8 @@ public final class OrderMapper {
                 order.getCartId(),
                 order.getUserId(),
                 order.getEmailSnapshot(),
+                order.getFirstNameSnapshot(),
+                order.getLastNameSnapshot(),
                 order.getStatus(),
                 order.getTotalPrice(),
                 new ShippingAddressResponse(

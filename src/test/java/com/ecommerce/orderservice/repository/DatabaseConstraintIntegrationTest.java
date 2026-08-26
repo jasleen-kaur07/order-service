@@ -39,6 +39,8 @@ class DatabaseConstraintIntegrationTest {
                 cartId,
                 userId,
                 "jasleen@gmail.com",
+                "Jasleen",
+                "Kaur",
                 "123 Main Street",
                 "Apt 4B",
                 "Noida",

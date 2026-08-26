@@ -40,19 +40,18 @@ public class OrderController {
     @Operation(
             summary = "Place an order",
             description = """
-                    Called by Cart Service at checkout. Order Service fetches the customer's email and
-                    the selected delivery address from User Service and **snapshots** them onto the
-                    order, validates that `totalPrice` equals the sum of the line items, persists the
-                    order and its items atomically, and publishes an `OrderCreated` event after commit.
+                    Called by Cart Service at checkout. Cart Service resolves the customer's email,
+                    name and delivery address itself and **snapshots** them onto this request; Order
+                    Service no longer calls User Service. Order Service validates that `totalPrice`
+                    equals the sum of the line items, persists the order and its items atomically, and
+                    publishes an `OrderPlaced` event after commit.
 
                     One order per cart: a resubmitted checkout for the same `cartId` is a 409.""")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Order created; Location header points at it"),
-            @ApiResponse(responseCode = "400", description = "VALIDATION_ERROR, ORDER_TOTAL_MISMATCH, or INVALID_ORDER_DETAILS (unknown user/address)",
+            @ApiResponse(responseCode = "400", description = "VALIDATION_ERROR or ORDER_TOTAL_MISMATCH",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "409", description = "DUPLICATE_ORDER - an order already exists for this cart",
-                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-            @ApiResponse(responseCode = "503", description = "UPSTREAM_UNAVAILABLE - User Service could not be reached",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     public ResponseEntity<OrderResponse> createOrder(@Valid @RequestBody CreateOrderRequest request) {
@@ -101,8 +100,9 @@ public class OrderController {
     @Operation(
             summary = "Cancel an order",
             description = """
-                    Moves a `CREATED` order to `CANCELLED` and publishes an `OrderCancelled` event
-                    after commit. Only a `CREATED` order may be cancelled; cancelling one that is
+                    Moves a `CREATED` order to `CANCELLED`. No Kafka event is published for
+                    cancellation - `OrderPlaced` is currently the only order event this service
+                    emits. Only a `CREATED` order may be cancelled; cancelling one that is
                     already cancelled is a 409, not a silent success.""")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Order cancelled"),
