@@ -23,16 +23,7 @@ public record CreateOrderRequest(
         List<OrderLineItemRequest> items,
 
         @NotNull(message = "totalPrice is required")
-        @DecimalMin(
-                value = "0.00",
-                inclusive = false,
-                message = "totalPrice must be greater than zero"
-        )
-        @Digits(
-                integer = 10,
-                fraction = 2,
-                message = "totalPrice must have at most 10 integer and 2 fraction digits"
-        )
+        @DecimalMin(value = "0.00", inclusive = false)
+        @Digits(integer = 10, fraction = 2)
         BigDecimal totalPrice
-) {
-}
+) {}
